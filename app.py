@@ -14,7 +14,6 @@ liye system me `ffmpeg` install hona chahiye.
 
 import streamlit as st
 import yt_dlp as youtube_dl
-from yt_dlp.utils import download_range_func
 import os
 import glob
 import re
@@ -213,10 +212,13 @@ def build_ydl_opts(
         if playlist_end:
             opts["playlistend"] = int(playlist_end)
     if clip_start_sec is not None or clip_end_sec is not None:
-        start = clip_start_sec or 0
-        end = clip_end_sec if clip_end_sec else 10_000_000  # large = "till video end"
-        opts["download_ranges"] = download_range_func(None, [(start, end)])
-        opts["force_keyframes_at_cuts"] = True
+        # Use FFmpegCutout postprocessor for reliable trimming
+        end = clip_end_sec if clip_end_sec else None
+        postprocessors.append({
+            "key": "FFmpegCutout",
+            "start_time": clip_start_sec,
+            "end_time": end,
+        })
     if progress_hook:
         opts["progress_hooks"] = [progress_hook]
     return opts
