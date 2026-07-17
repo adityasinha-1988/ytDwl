@@ -49,11 +49,43 @@ Browser me apne aap khul jayega (default: http://localhost:8501).
 - **📚 Batch Download** — Single Video tab ke neeche, ek saath multiple URLs
   (ek line me ek link) daal ke sab download kar sakte ho.
 
+## Streamlit Cloud pe deploy karna
+
+App ab multi-user ke liye safe hai — har browser session ka apna alag
+download folder hota hai (`downloads/<session_id>/`), aur `packages.txt` me
+`ffmpeg` add kiya hai jo Streamlit Cloud automatically install kar lega.
+
+**Zaroori baatein deploy karne se pehle:**
+
+1. `app.py`, `requirements.txt`, aur `packages.txt` teeno files GitHub repo me
+   push karo — Streamlit Cloud repo se hi deploy karta hai.
+2. **Storage temporary hai.** Server restart/redeploy hone par saari
+   downloaded files delete ho jaati hain. User ko turant "Download" button se
+   file apne PC pe le lena chahiye.
+3. **YouTube cloud IPs block/rate-limit kar sakta hai.** Streamlit Cloud ka
+   shared datacenter IP kabhi kabhi YouTube ko "bot jaisa" lagta hai aur wo
+   "Sign in to confirm you're not a bot" jaisa error de sakta hai — yeh
+   local PC pe nahi hota. Iska fix cookies file upload karna ho sakta hai
+   (sidebar me already option hai), ya ek residential/rotating proxy use
+   karna (Proxy field me daal sakte ho).
+4. **Free tier resource-limited hai** (~1GB RAM) — bahut badi playlist ya
+   lambi videos timeout/crash kar sakti hain.
+5. Public URL pe deploy karne ka matlab koi bhi is tool ka use karke content
+   download kar payega — agar sirf apne personal use ke liye chahiye to app
+   ko private/unlisted rakhna behtar hoga.
+
+
 ## Note
 
-`youtube-dl` kaafi purana project ho chuka hai aur kai baar naye YouTube
-changes ke saath fail karta hai. Agar downloads fail hone lagein, to isi app
-ka structure `yt-dlp` (actively maintained fork, same options) ke saath bhi
-kaam karta hai — bas `requirements.txt` me `youtube-dl` ki jagah `yt-dlp`
-likh dena aur `app.py` me `import youtube_dl` ko `import yt_dlp as youtube_dl`
-kar dena, baaki sab code same rahega.
+Ye app already `yt-dlp` (actively maintained fork) use kar raha hai, isliye
+purane `youtube-dl` wali "page needs to be reloaded" jaisi dikkat nahi aani
+chahiye. Agar kabhi downloads fail hone lagein, pehle `pip install -U yt-dlp`
+se update kar lena — YouTube changes hone par yt-dlp bhi jaldi update hota hai.
+
+**Clip / specific-duration download troubleshoot karna:** Agar clip theek se
+kaam na kare, "More Options" expander me "🐞 Debug mode" on karke dobara try
+karo — download poora hone (ya fail hone) ke baad ek "Debug log" expander
+dikhega jisme yt-dlp ka poora internal log hoga. Wo error message share karna
+sabse jaldi diagnose karne me madad karega.
+
+

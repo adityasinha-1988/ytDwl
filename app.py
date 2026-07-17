@@ -18,6 +18,7 @@ from yt_dlp.utils import download_range_func
 import os
 import glob
 import re
+import uuid
 import tempfile
 import traceback
 from datetime import datetime
@@ -25,8 +26,36 @@ from datetime import datetime
 # --------------------------------------------------------------------------
 # Config
 # --------------------------------------------------------------------------
-DOWNLOAD_DIR = os.path.join(os.getcwd(), "downloads")
+# Har browser session ko apna alag folder milta hai, taaki jab yeh app
+# ek shared server (jaise Streamlit Cloud) pe deploy ho to ek user
+# doosre user ki downloaded files na dekh/le sake.
+if "session_id" not in st.session_state:
+    st.session_state["session_id"] = uuid.uuid4().hex[:12]
+
+BASE_DOWNLOAD_DIR = os.path.join(os.getcwd(), "downloads")
+DOWNLOAD_DIR = os.path.join(BASE_DOWNLOAD_DIR, st.session_state["session_id"])
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+
+def cleanup_old_sessions(max_age_hours=6):
+    """Purane session folders delete karo taaki server ki disk full na ho."""
+    import time
+    if not os.path.isdir(BASE_DOWNLOAD_DIR):
+        return
+    now = time.time()
+    for name in os.listdir(BASE_DOWNLOAD_DIR):
+        path = os.path.join(BASE_DOWNLOAD_DIR, name)
+        if path == DOWNLOAD_DIR:
+            continue  # apna current session mat chhedo
+        try:
+            if os.path.isdir(path) and (now - os.path.getmtime(path)) > max_age_hours * 3600:
+                import shutil
+                shutil.rmtree(path, ignore_errors=True)
+        except OSError:
+            pass
+
+
+cleanup_old_sessions()
 
 st.set_page_config(page_title="YT Downloader Pro", page_icon="🎬", layout="wide")
 
@@ -124,7 +153,7 @@ def build_ydl_opts(
     container_format="mp4", audio_format="mp3", audio_bitrate="192",
     embed_chapters=False, sponsorblock_categories=None, retries=10,
     write_description=False, write_infojson=False,
-    clip_start_sec=None, clip_end_sec=None,
+    clip_start_sec=None, clip_end_sec=None, debug_mode=False, logger=None,
 ):
     fmt = build_format_string(quality)
     outtmpl = os.path.join(DOWNLOAD_DIR, output_template)
@@ -162,11 +191,14 @@ def build_ydl_opts(
         "writeinfojson": write_infojson,
         "postprocessors": postprocessors,
         "retries": int(retries) if retries else 10,
-        "quiet": True,
-        "no_warnings": True,
-        "ignoreerrors": True,
+        "quiet": not debug_mode,
+        "no_warnings": not debug_mode,
+        "ignoreerrors": "only_download" if playlist else False,
         "restrictfilenames": False,
+        "verbose": debug_mode,
     }
+    if logger is not None:
+        opts["logger"] = logger
 
     if proxy:
         opts["proxy"] = proxy
@@ -188,6 +220,26 @@ def build_ydl_opts(
     if progress_hook:
         opts["progress_hooks"] = [progress_hook]
     return opts
+
+
+class UILogger:
+    """yt-dlp logger jo saari lines ek list me collect karta hai, taaki debug mode me UI me dikhayi ja sakein."""
+    def __init__(self):
+        self.lines = []
+    def debug(self, msg):
+        self.lines.append(msg)
+    def info(self, msg):
+        self.lines.append(msg)
+    def warning(self, msg):
+        self.lines.append(f"WARNING: {msg}")
+    def error(self, msg):
+        self.lines.append(f"ERROR: {msg}")
+
+
+def show_debug_log(logger, debug_mode):
+    if debug_mode and logger and logger.lines:
+        with st.expander("🐞 Debug log (yt-dlp output)", expanded=False):
+            st.code("\n".join(logger.lines), language="text")
 
 
 def make_progress_hook(progress_bar, status_text):
@@ -296,7 +348,10 @@ def more_options_ui(key_prefix, is_audio_only):
         with oc3:
             write_infojson = st.checkbox("🧾 Info .json save karein", key=f"{key_prefix}_infojson")
 
-    return container_format, audio_format, audio_bitrate, embed_chapters, sb_categories, retries, write_description, write_infojson
+        debug_mode = st.checkbox("🐞 Debug mode (poora yt-dlp log dikhaein, agar kuch fail ho raha ho to)", key=f"{key_prefix}_debug")
+
+    return (container_format, audio_format, audio_bitrate, embed_chapters, sb_categories,
+            retries, write_description, write_infojson, debug_mode)
 
 
 # --------------------------------------------------------------------------
@@ -329,7 +384,7 @@ with tab1:
         subtitles, sub_langs, embed_subs, embed_thumb, add_metadata = advanced_options_ui("single")
         clip_start_sec, clip_end_sec = clip_range_ui("single")
         (container_format, audio_format, audio_bitrate, embed_chapters,
-         sb_categories, retries, write_description, write_infojson) = more_options_ui(
+         sb_categories, retries, write_description, write_infojson, debug_mode) = more_options_ui(
             "single", quality.startswith("Audio only")
         )
 
@@ -369,7 +424,8 @@ with tab1:
                 container_format=container_format, audio_format=audio_format, audio_bitrate=audio_bitrate,
                 embed_chapters=embed_chapters, sponsorblock_categories=sb_categories, retries=retries,
                 write_description=write_description, write_infojson=write_infojson,
-                clip_start_sec=clip_start_sec, clip_end_sec=clip_end_sec,
+                clip_start_sec=clip_start_sec, clip_end_sec=clip_end_sec, debug_mode=debug_mode,
+                logger=(dbg_logger := UILogger()),
                 progress_hook=make_progress_hook(progress_bar, status_text),
             )
             try:
@@ -381,6 +437,7 @@ with tab1:
             except Exception as e:
                 st.error(f"Download fail ho gaya: {e}")
                 st.code(traceback.format_exc())
+            show_debug_log(dbg_logger, debug_mode)
 
     st.markdown("---")
     with st.expander("📚 Batch Download — ek se zyada links ek saath"):
@@ -398,7 +455,8 @@ with tab1:
                     container_format=container_format, audio_format=audio_format, audio_bitrate=audio_bitrate,
                     embed_chapters=embed_chapters, sponsorblock_categories=sb_categories, retries=retries,
                     write_description=write_description, write_infojson=write_infojson,
-                    clip_start_sec=clip_start_sec, clip_end_sec=clip_end_sec,
+                    clip_start_sec=clip_start_sec, clip_end_sec=clip_end_sec, debug_mode=debug_mode,
+                    logger=(dbg_logger := UILogger()),
                     progress_hook=make_progress_hook(progress_bar, status_text),
                 )
                 try:
@@ -409,6 +467,7 @@ with tab1:
                 except Exception as e:
                     st.error(f"Batch download me dikkat aayi: {e}")
                     st.code(traceback.format_exc())
+                show_debug_log(dbg_logger, debug_mode)
 
 # ---------------- Tab 2: Playlist ----------------
 with tab2:
@@ -418,7 +477,7 @@ with tab2:
     p_clip_start_sec, p_clip_end_sec = clip_range_ui("playlist")
     st.caption("ℹ️ Clip range set hone par playlist ke har video se yeh time-range hi nikala jayega.")
     (p_container_format, p_audio_format, p_audio_bitrate, p_embed_chapters,
-     p_sb_categories, p_retries, p_write_description, p_write_infojson) = more_options_ui(
+     p_sb_categories, p_retries, p_write_description, p_write_infojson, p_debug_mode) = more_options_ui(
         "playlist", p_quality.startswith("Audio only")
     )
 
@@ -463,7 +522,8 @@ with tab2:
                 container_format=p_container_format, audio_format=p_audio_format, audio_bitrate=p_audio_bitrate,
                 embed_chapters=p_embed_chapters, sponsorblock_categories=p_sb_categories, retries=p_retries,
                 write_description=p_write_description, write_infojson=p_write_infojson,
-                clip_start_sec=p_clip_start_sec, clip_end_sec=p_clip_end_sec,
+                clip_start_sec=p_clip_start_sec, clip_end_sec=p_clip_end_sec, debug_mode=p_debug_mode,
+                logger=(dbg_logger := UILogger()),
                 progress_hook=make_progress_hook(progress_bar, status_text),
             )
             try:
@@ -475,6 +535,7 @@ with tab2:
             except Exception as e:
                 st.error(f"Download fail ho gaya: {e}")
                 st.code(traceback.format_exc())
+            show_debug_log(dbg_logger, p_debug_mode)
 
 # ---------------- Tab 3: Downloaded files ----------------
 with tab3:
