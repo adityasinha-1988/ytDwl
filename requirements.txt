@@ -1,2 +1,2 @@
 streamlit>=1.32
-yt-dlp
+yt-dlp>=2026.7.4

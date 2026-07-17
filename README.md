@@ -1,91 +1,83 @@
 # YT Downloader Pro 🎬
 
-`youtube-dl` ke upar bana hua ek simple, GUI-friendly Streamlit app. Command
-line ki zaroorat nahi — bas URL paste karo aur click karo.
+A simple, GUI-friendly Streamlit app built on top of `yt-dlp`. No need for command line — just paste a link and click.
 
-## Setup (ek baar)
+## Setup (one-time)
 
 ```bash
 pip install -r requirements.txt
 ```
 
-**Zaroori:** `ffmpeg` bhi system me install hona chahiye (video convert,
-thumbnail/subtitle embed karne ke liye).
+**Required:** `ffmpeg` must also be installed on your system (for video conversion, thumbnail/subtitle embedding).
 
-- Windows: https://ffmpeg.org/download.html se download karke PATH me daalein,
-  ya `choco install ffmpeg`
+- Windows: Download from https://ffmpeg.org/download.html and add to PATH, or use `choco install ffmpeg`
 - Mac: `brew install ffmpeg`
 - Linux: `sudo apt install ffmpeg`
 
-## Run karna
+## Running
 
 ```bash
 streamlit run app.py
 ```
 
-Browser me apne aap khul jayega (default: http://localhost:8501).
+The app will open automatically in your browser (default: http://localhost:8501).
 
 ## Features
 
-- **Single Video tab** — URL paste karo → "Info Fetch Karein" se title/thumbnail
-  preview dekho → quality choose karo → download.
-- **Playlist tab** — poori playlist ya start/end index ke beech ke videos
-  download karo.
-- **Downloaded Files tab** — jitni bhi files download hui hain, unhe yahan se
-  download button se apne device pe le jao, ya delete karo.
-- **Sidebar (Advanced Settings)** — filename template, proxy, speed limit,
-  cookies file (login-required videos ke liye jaise private/age-restricted).
-- **Quality options** — Best, 1080p/720p/480p/360p, ya Audio-only.
-- **Extra options** — subtitles download + embed, thumbnail embed, metadata add.
-- **✂️ Clip / specific duration** — poora video/audio download karne ki jagah
-  sirf ek time-range (e.g. 00:30 se 02:15 tak) hi nikalo. Single Video aur
-  Playlist dono tabs me available hai.
+- **Single Video tab** — Paste URL → "Fetch Info" to preview title/thumbnail → choose quality → download.
+- **Playlist tab** — Download entire playlists or videos within a start/end index range.
+- **Downloaded Files tab** — Download saved files to your device, or delete them.
+- **Sidebar (Advanced Settings)** — Filename template, proxy, speed limit, cookies file (for login-required/age-restricted videos).
+- **Quality options** — Best, 1080p/720p/480p/360p, or Audio-only.
+- **Extra options** — Download & embed subtitles, embed thumbnails, add metadata.
+- **✂️ Clip / specific duration** — Instead of downloading the entire video/audio, extract only a time range (e.g., 00:30 to 02:15). Available in both Single Video and Playlist tabs.
 - **🧩 More Options** (expander) —
   - Video container: mp4 / mkv / webm
   - Audio format: mp3 / m4a / wav / opus / vorbis / flac + bitrate (64–320 kbps)
-  - Chapters embed karna
-  - SponsorBlock — video se sponsor/ads/intro/outro segments hataana
-  - Retries count, description `.txt` aur info `.json` save karna
-- **📚 Batch Download** — Single Video tab ke neeche, ek saath multiple URLs
-  (ek line me ek link) daal ke sab download kar sakte ho.
+  - Embed chapters
+  - SponsorBlock — automatically remove sponsor/ads/intro/outro segments from videos
+  - Retries count, save description `.txt` and info `.json`
+  - 🐞 Debug mode — enables verbose yt-dlp logging to troubleshoot issues
+- **📚 Batch Download** — Below the Single Video tab, paste multiple URLs (one per line) to download them all at once.
 
-## Streamlit Cloud pe deploy karna
+## Deploying to Streamlit Cloud
 
-App ab multi-user ke liye safe hai — har browser session ka apna alag
-download folder hota hai (`downloads/<session_id>/`), aur `packages.txt` me
-`ffmpeg` add kiya hai jo Streamlit Cloud automatically install kar lega.
+The app is now multi-user safe — each browser session has its own download folder (`downloads/<session_id>/`), and `packages.txt` includes `ffmpeg` which Streamlit Cloud will automatically install.
 
-**Zaroori baatein deploy karne se pehle:**
+**Important before deploying:**
 
-1. `app.py`, `requirements.txt`, aur `packages.txt` teeno files GitHub repo me
-   push karo — Streamlit Cloud repo se hi deploy karta hai.
-2. **Storage temporary hai.** Server restart/redeploy hone par saari
-   downloaded files delete ho jaati hain. User ko turant "Download" button se
-   file apne PC pe le lena chahiye.
-3. **YouTube cloud IPs block/rate-limit kar sakta hai.** Streamlit Cloud ka
-   shared datacenter IP kabhi kabhi YouTube ko "bot jaisa" lagta hai aur wo
-   "Sign in to confirm you're not a bot" jaisa error de sakta hai — yeh
-   local PC pe nahi hota. Iska fix cookies file upload karna ho sakta hai
-   (sidebar me already option hai), ya ek residential/rotating proxy use
-   karna (Proxy field me daal sakte ho).
-4. **Free tier resource-limited hai** (~1GB RAM) — bahut badi playlist ya
-   lambi videos timeout/crash kar sakti hain.
-5. Public URL pe deploy karne ka matlab koi bhi is tool ka use karke content
-   download kar payega — agar sirf apne personal use ke liye chahiye to app
-   ko private/unlisted rakhna behtar hoga.
+1. Push all three files to your GitHub repo — `app.py`, `requirements.txt`, and `packages.txt`. Streamlit Cloud deploys from your repo.
+2. **Storage is temporary.** When the server restarts or redeploys, all downloaded files are deleted. Users should immediately click the "Download" button in the "Downloaded Files" tab to save files to their PC.
+3. **YouTube may rate-limit cloud IPs.** Streamlit Cloud uses a shared datacenter IP, which YouTube sometimes blocks as "bot-like" (this doesn't happen on local PCs). Workaround: upload a cookies file (option in sidebar) or set a residential proxy (in Proxy field).
+4. **Free tier is resource-limited** (~1GB RAM) — very large playlists or long videos may timeout/crash.
+5. **Public deployment means anyone can use this tool** — if you only want personal access, keep the app private/unlisted.
 
+## Troubleshooting
+
+### Clip/time-range download failing
+
+If clip extraction fails with a message like "ffmpeg is not installed":
+- When deployed on Streamlit Cloud: Make sure `packages.txt` (with `ffmpeg` inside) is pushed to your GitHub repo. Reboot the app from "Manage app" panel so the container rebuilds and installs ffmpeg.
+- Locally: Install ffmpeg on your system (see Setup section above).
+
+### General download failures
+
+Enable **🐞 Debug mode** in the "More Options" expander. After the download attempt, a "Debug log" section will appear showing yt-dlp's internal output. Share this log for faster troubleshooting.
+
+### HTTP Error 403: Forbidden
+
+This means YouTube is blocking the request — very common on cloud platforms like Streamlit Cloud because they use shared datacenter IPs that YouTube flags as suspicious (this usually doesn't happen on a local PC with a residential IP).
+
+The app already tries a workaround (falling back through Android/TV/iOS YouTube clients, which often bypasses this). If it still happens:
+
+1. **Update yt-dlp** — YouTube changes its systems often, and yt-dlp ships fixes frequently. Locally: `pip install -U yt-dlp`. On Streamlit Cloud: bump the version in `requirements.txt` (already pinned to a recent version) and reboot.
+2. **Use a cookies file** (most reliable fix) — Export cookies from a logged-in YouTube session in your browser (e.g., using the "Get cookies.txt" extension) and upload the `.txt` file in the sidebar's "Cookies file" field. This makes requests look like they're coming from a real logged-in browser.
+3. **Use a proxy** — Set a residential/rotating proxy in the sidebar's Proxy field if cookies alone don't help.
+4. This issue is inherent to running scrapers on shared cloud infrastructure — it may recur periodically as YouTube adjusts its blocking rules.
 
 ## Note
 
-Ye app already `yt-dlp` (actively maintained fork) use kar raha hai, isliye
-purane `youtube-dl` wali "page needs to be reloaded" jaisi dikkat nahi aani
-chahiye. Agar kabhi downloads fail hone lagein, pehle `pip install -U yt-dlp`
-se update kar lena — YouTube changes hone par yt-dlp bhi jaldi update hota hai.
+This app uses `yt-dlp` (actively maintained fork of youtube-dl). Since YouTube changes its page structure frequently, if downloads start failing, update yt-dlp: `pip install -U yt-dlp`. The yt-dlp project releases updates regularly to keep pace with YouTube changes.
 
-**Clip / specific-duration download troubleshoot karna:** Agar clip theek se
-kaam na kare, "More Options" expander me "🐞 Debug mode" on karke dobara try
-karo — download poora hone (ya fail hone) ke baad ek "Debug log" expander
-dikhega jisme yt-dlp ka poora internal log hoga. Wo error message share karna
-sabse jaldi diagnose karne me madad karega.
 
 

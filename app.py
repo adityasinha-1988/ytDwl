@@ -195,6 +195,14 @@ def build_ydl_opts(
         "ignoreerrors": "only_download" if playlist else False,
         "restrictfilenames": False,
         "verbose": debug_mode,
+        # Cloud/datacenter IPs often get HTTP 403 from YouTube on the default
+        # "web" client. Falling back through android/ios/tv clients (which use
+        # different signature logic) fixes this in most cases without cookies.
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "web", "tv", "ios"],
+            }
+        },
     }
     if logger is not None:
         opts["logger"] = logger
