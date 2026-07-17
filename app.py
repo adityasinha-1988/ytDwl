@@ -212,13 +212,8 @@ def build_ydl_opts(
         if playlist_end:
             opts["playlistend"] = int(playlist_end)
     if clip_start_sec is not None or clip_end_sec is not None:
-        # Use FFmpegCutout postprocessor for reliable trimming
-        end = clip_end_sec if clip_end_sec else None
-        postprocessors.append({
-            "key": "FFmpegCutout",
-            "start_time": clip_start_sec,
-            "end_time": end,
-        })
+        # Clip feature temporarily disabled — just skip
+        pass
     if progress_hook:
         opts["progress_hooks"] = [progress_hook]
     return opts
@@ -299,23 +294,13 @@ def advanced_options_ui(key_prefix):
 
 
 def clip_range_ui(key_prefix):
-    """Sirf ek specific duration/clip download karne ka option."""
-    clip_on = st.checkbox("✂️ Sirf ek specific duration (clip) chahiye", key=f"{key_prefix}_clip_on")
-    clip_start_sec, clip_end_sec = None, None
-    if clip_on:
-        cc1, cc2 = st.columns(2)
-        with cc1:
-            start_text = st.text_input("Start time (HH:MM:SS ya MM:SS)", value="00:00", key=f"{key_prefix}_clip_start")
-        with cc2:
-            end_text = st.text_input("End time (HH:MM:SS ya MM:SS)", value="01:00", key=f"{key_prefix}_clip_end")
-        clip_start_sec = parse_time_to_seconds(start_text)
-        clip_end_sec = parse_time_to_seconds(end_text)
-        if start_text and clip_start_sec is None:
-            st.warning("Start time samajh nahi aaya, format: MM:SS ya HH:MM:SS")
-        if end_text and clip_end_sec is None:
-            st.warning("End time samajh nahi aaya, format: MM:SS ya HH:MM:SS")
-        st.caption("ℹ️ Yeh poora file download nahi karega — sirf diye gaye time-range ka hi hissa nikalega.")
-    return clip_start_sec, clip_end_sec
+    """Clip feature temporarily disabled due to postprocessor compatibility."""
+    st.info(
+        "⚠️ **Clip/duration feature is temporarily disabled.** "
+        "For now, download the full video and trim locally using: "
+        "`ffmpeg -i input.mp4 -ss 00:00:10 -to 00:00:20 -c:v copy -c:a copy output.mp4`"
+    )
+    return None, None  # Return None for start and end
 
 
 def more_options_ui(key_prefix, is_audio_only):
